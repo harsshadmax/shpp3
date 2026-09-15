@@ -106,7 +106,7 @@ export function NavRail({ items }: { items: NavItem[] }) {
       <nav className="hidden md:flex w-[232px] shrink-0 bg-[var(--primary)] text-white flex-col h-full">
         <div className="h-[56px] flex items-center gap-2 px-5 border-b border-white/15">
           <ShieldCheck size={18} />
-          <span className="font-mono-id text-[14px] font-semibold tracking-wide">PROJECT96</span>
+          <span className="font-mono-id text-[14px] font-semibold tracking-wide">PROJECT 96</span>
         </div>
         <NavLinks items={items} pathname={pathname} />
         <NavFooter />
@@ -117,7 +117,7 @@ export function NavRail({ items }: { items: NavItem[] }) {
         <div className="h-[56px] flex items-center justify-between gap-2 px-4">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} />
-            <span className="font-mono-id text-[14px] font-semibold tracking-wide">PROJECT96</span>
+            <span className="font-mono-id text-[14px] font-semibold tracking-wide">PROJECT 96</span>
           </div>
           <button
             onClick={() => setOpen((o) => !o)}

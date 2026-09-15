@@ -1,6 +1,6 @@
 {
-  "name": "Project96 — Chain of Custody Registry",
-  "short_name": "Project96",
+  "name": "Project 96 — Chain of Custody Registry",
+  "short_name": "Project 96",
   "description": "Offline-first digital chain-of-custody platform for medico-legal evidence handoffs.",
   "start_url": "/login",
   "display": "standalone",

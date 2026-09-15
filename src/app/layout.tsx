@@ -15,7 +15,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Project96 — Chain of Custody Registry",
+  title: "Project 96 — Chain of Custody Registry",
   description:
     "Offline-first digital chain-of-custody platform for medico-legal evidence handoffs.",
   manifest: "/manifest.json",

@@ -1,4 +1,4 @@
-# SECURITY.md — Project96 threat model (prototype)
+# SECURITY.md — Project 96 threat model (prototype)
 
 This is a hackathon demo, not a production system. This document is deliberately
 honest about what is real and what is mocked so it can be defended to judges

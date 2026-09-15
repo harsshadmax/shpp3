@@ -1,5 +1,5 @@
 -- ============================================================================
--- Project96: Authentication & Users Database Schema
+-- Project 96: Authentication & Users Database Schema
 -- Compatible with PostgreSQL & Supabase
 -- ============================================================================
 
