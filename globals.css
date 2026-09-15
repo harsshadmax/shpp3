@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-sunken: #eff2f5;
+  --border: #dde3ea;
+  --border-strong: #c3ccd6;
+  --ink: #0e1b2a;
+  --ink-muted: #5a6b7d;
+  --ink-faint: #8494a5;
+  --primary: #123a63;
+  --primary-hover: #0d2c4c;
+  --accent: #1f6fb2;
+  --verified: #0f7355;
+  --verified-bg: #e8f4ef;
+  --pending: #9a6207;
+  --pending-bg: #fbf2e2;
+  --breach: #a8231c;
+  --breach-bg: #fbeae8;
+
+  --font-ui: var(--font-inter), Arial, Helvetica, sans-serif;
+  --font-mono-id: var(--font-ibm-plex-mono), "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-id {
+  font-family: var(--font-mono-id);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+* {
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out,
+    color 120ms ease-out,
+    opacity 120ms ease-out;
+}
+
+@keyframes sweep-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.sweep-bar {
+  animation: sweep-progress 400ms ease-out forwards;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-sunken);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+}
