@@ -17,15 +17,16 @@ function isLiveDemoPhone(phone: string): boolean {
   return phone.replace(/\D/g, "") === LIVE_DEMO_PHONE_DIGITS;
 }
 
-async function pushOtpToDevice(code: string): Promise<void> {
+async function pushOtpToDevice(code: string): Promise<boolean> {
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: "POST",
       body: `Your demo OTP is ${code}`,
       headers: { Title: "Project 96 demo OTP", Priority: "high", Tags: "closed_lock_with_key" },
     });
+    return res.ok;
   } catch {
-    // Best-effort only — the on-screen fallback code still works if this fails.
+    return false;
   }
 }
 
@@ -56,6 +57,10 @@ export function OtpVerification({
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  // Only meaningful when liveDemo. "pending"/"sent" never reveal the code
+  // on-screen — only "failed" does, as a safety net so the demo can never
+  // be completely blocked if the push itself doesn't go through.
+  const [pushStatus, setPushStatus] = useState<"pending" | "sent" | "failed">("pending");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -66,7 +71,9 @@ export function OtpVerification({
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
-    if (liveDemo) void pushOtpToDevice(demoCode);
+    if (liveDemo) {
+      pushOtpToDevice(demoCode).then((ok) => setPushStatus(ok ? "sent" : "failed"));
+    }
     // Fires once on mount only; resend() handles subsequent pushes itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,7 +113,10 @@ export function OtpVerification({
   function resend() {
     const next = liveDemo ? LIVE_DEMO_OTP : generateCode();
     setDemoCode(next);
-    if (liveDemo) void pushOtpToDevice(next);
+    if (liveDemo) {
+      setPushStatus("pending");
+      pushOtpToDevice(next).then((ok) => setPushStatus(ok ? "sent" : "failed"));
+    }
     setSecondsLeft(RESEND_SECONDS);
     setDigits(Array(6).fill(""));
     setError(null);
@@ -127,14 +137,25 @@ export function OtpVerification({
         </div>
       </div>
 
-      <div className="p-2.5 rounded-[6px] border border-dashed border-[var(--accent)] bg-[var(--surface-sunken)] text-center">
-        <p className="text-[10px] font-semibold tracking-[0.06em] uppercase text-[var(--ink-faint)]">
-          Prototype mode · SMS not actually sent
-        </p>
-        <p className="font-mono-id text-[16px] font-semibold tracking-[0.2em] text-[var(--accent)] mt-1">
-          {demoCode}
-        </p>
-      </div>
+      {liveDemo && pushStatus !== "failed" ? (
+        <div className="p-2.5 rounded-[6px] border border-dashed border-[var(--accent)] bg-[var(--surface-sunken)] text-center">
+          <p className="text-[10px] font-semibold tracking-[0.06em] uppercase text-[var(--ink-faint)]">
+            {pushStatus === "sent" ? "Code sent to your device" : "Sending code…"}
+          </p>
+          <p className="text-[11px] text-[var(--ink-muted)] mt-1">
+            Check your phone notification for the 6-digit code
+          </p>
+        </div>
+      ) : (
+        <div className="p-2.5 rounded-[6px] border border-dashed border-[var(--accent)] bg-[var(--surface-sunken)] text-center">
+          <p className="text-[10px] font-semibold tracking-[0.06em] uppercase text-[var(--ink-faint)]">
+            {liveDemo ? "Couldn't reach your device · showing code" : "Prototype mode · SMS not actually sent"}
+          </p>
+          <p className="font-mono-id text-[16px] font-semibold tracking-[0.2em] text-[var(--accent)] mt-1">
+            {demoCode}
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="p-2.5 text-[12px] bg-[var(--breach-bg)] border border-[var(--breach)] text-[var(--breach)] rounded-[6px] text-center">
