@@ -6,13 +6,22 @@ without overclaiming.
 
 ## What is real
 
-- **Session cookie.** `POST /api/auth/login` validates the submitted email/password
-  against a seeded, server-side user list and issues a session token: a
-  base64url JSON body (`{userId, role, name, org, exp}`) plus an HMAC-SHA256
-  signature over that body, computed with `crypto.subtle` (Web Crypto, not a
-  hand-rolled hash). The token is set as an **`httpOnly`, `sameSite=strict`,
-  `secure`** cookie — it is never written to `localStorage` and is not
-  readable from client JavaScript. See `src/lib/session.ts`.
+- **Two-step sign-in.** Primary credentials (email/password) are verified by
+  Firebase Authentication, not by this app's own code. The client then
+  completes an OTP step before the server will issue a session. `POST
+  /api/auth/firebase-session` independently re-verifies the Firebase ID
+  token server-side — checking its RS256 signature against Google's public
+  JWKS, issuer and audience — before trusting it; the client's claim to be
+  signed in is never taken at face value. See `src/lib/firebaseVerify.ts`.
+- **Session cookie.** Once the Firebase ID token is verified, the server
+  looks up the caller's role from their own Firestore profile (fetched using
+  that same token, so a client cannot claim a role it doesn't have) and
+  issues this app's own session token: a base64url JSON body (`{userId,
+  role, name, org, exp}`) plus an HMAC-SHA256 signature over that body,
+  computed with `crypto.subtle` (Web Crypto, not a hand-rolled hash). The
+  token is set as an **`httpOnly`, `sameSite=strict`, `secure`** cookie — it
+  is never written to `localStorage` and is not readable from client
+  JavaScript. See `src/lib/session.ts`.
 - **Edge-enforced route guarding.** `src/middleware.ts` runs before any page
   in `/mo/*`, `/police/*` or `/fsl/*` is served. It verifies the session
   signature, and if the token's role does not match the route's role prefix,
@@ -51,10 +60,20 @@ without overclaiming.
   round-trip) and there is no database to hold a server-only key against. In
   production this key would live server-side only, and signing would happen
   via an API call the client cannot forge.
-- **Seeded users and plaintext demo passwords.** All three accounts use the
-  same password (`Demo@2026`) stored in source (`src/lib/users.ts`) for
-  fast, reliable live demos. A real deployment would hash passwords
-  (bcrypt/argon2) and back them with a real identity provider.
+- **Shared demo password.** The seeded demo accounts use the same password
+  (`Demo@2026`) for fast, reliable live demos, but the accounts themselves
+  are real Firebase Authentication users, not a plaintext list checked by
+  this app's own code.
+- **OTP is simulated, not real SMS.** No SMS provider is wired up. The
+  6-digit code is normally generated client-side and shown on-screen so the
+  prototype is self-contained. For one pre-designated phone number used in
+  live demos, the code is instead pushed to a physical device over ntfy.sh
+  (a public pub/sub notification service) so a live audience sees a real
+  notification arrive; every other phone number keeps the on-screen
+  fallback. This is an intentional demo convenience, not a real second
+  factor — a production deployment would use a real SMS/TOTP provider and
+  never show or broadcast the code anywhere the account holder didn't
+  request it.
 - **The session secret (`SESSION_SECRET` in `src/lib/session.ts`) is a
   hardcoded string**, not an environment variable, again to keep the demo
   deployable with zero configuration. Rotate this and move it to a real

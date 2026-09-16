@@ -1,5 +1,3 @@
-import { z } from "zod";
-import bcrypt from "bcryptjs";
 import { supabase, isSupabaseConfigured } from "./supabase";
 import type { Role as LegacyRole } from "./types";
 
@@ -19,31 +17,6 @@ export interface UserRecord {
 }
 
 export type SanitizedUser = Omit<UserRecord, "password_hash">;
-
-export const signupSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters"),
-  email: z.string().trim().email("Invalid email address").toLowerCase(),
-  employee_code: z.string().trim().min(3, "Employee/badge code must be at least 3 characters"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
-  role: z.enum(["MEDICAL_OFFICER", "POLICE", "FSL_OFFICER", "ADMIN"], {
-    message: "Role must be MEDICAL_OFFICER, POLICE, FSL_OFFICER, or ADMIN",
-  }),
-  facility_id: z.string().trim().min(2, "Facility ID must be at least 2 characters"),
-});
-
-export type SignupInput = z.infer<typeof signupSchema>;
-
-export const loginSchema = z.object({
-  identifier: z.string().trim().min(1, "Email or Employee code is required"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export type LoginInput = z.infer<typeof loginSchema>;
 
 // Default Bcrypt Hash for Demo@2026
 const DEMO_PASSWORD_HASH = "$2b$10$7FIbZjJpVkdiGyZMydof4eopoUPpij5t1O196ny28Nhb2xLepZbwm";
@@ -110,16 +83,6 @@ export function sanitizeUser(user: UserRecord): SanitizedUser {
   return sanitized;
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  // Support demo password fallback if hash is mock or valid bcrypt
-  if (hash === "Demo@2026" && password === "Demo@2026") return true;
-  return bcrypt.compare(password, hash);
-}
-
 export function mapRoleToLegacyRole(role: UserRole | string): LegacyRole {
   switch (role) {
     case "MEDICAL_OFFICER":
@@ -176,72 +139,3 @@ export async function findUserByIdentifier(identifier: string): Promise<UserReco
   return local || null;
 }
 
-/**
- * Checks if email or employee code is already in use.
- */
-export async function checkIdentifierExists(
-  email: string,
-  employeeCode: string
-): Promise<{ emailExists: boolean; codeExists: boolean }> {
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanCode = employeeCode.trim().toLowerCase();
-
-  let emailExists = localUsers.some((u) => u.email.toLowerCase() === cleanEmail);
-  let codeExists = localUsers.some((u) => u.employee_code.toLowerCase() === cleanCode);
-
-  if (isSupabaseConfigured) {
-    try {
-      const { data } = await supabase
-        .from("users")
-        .select("email, employee_code")
-        .or(`email.ilike.${cleanEmail},employee_code.ilike.${cleanCode}`);
-
-      if (data && data.length > 0) {
-        for (const item of data) {
-          if (item.email?.toLowerCase() === cleanEmail) emailExists = true;
-          if (item.employee_code?.toLowerCase() === cleanCode) codeExists = true;
-        }
-      }
-    } catch {
-      // Use local check on failure
-    }
-  }
-
-  return { emailExists, codeExists };
-}
-
-/**
- * Creates a new user record in Supabase and local storage.
- */
-export async function createUser(input: SignupInput): Promise<SanitizedUser> {
-  const password_hash = await hashPassword(input.password);
-  const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-
-  const record: UserRecord = {
-    id,
-    employee_code: input.employee_code.trim(),
-    name: input.name.trim(),
-    email: input.email.trim().toLowerCase(),
-    password_hash,
-    role: input.role,
-    facility_id: input.facility_id.trim(),
-    is_active: true,
-    created_at: now,
-    updated_at: now,
-  };
-
-  // Add to local store immediately
-  localUsers.push(record);
-
-  // Sync to Supabase if configured
-  if (isSupabaseConfigured) {
-    try {
-      await supabase.from("users").insert([record]);
-    } catch {
-      // Local copy guarantees working state even if Supabase table is not yet migrated
-    }
-  }
-
-  return sanitizeUser(record);
-}
