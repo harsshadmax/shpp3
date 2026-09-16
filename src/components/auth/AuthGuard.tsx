@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { setCurrentUser, ensureHydrated } from "@/lib/store";
+import { signOut } from "firebase/auth";
+import { firebaseAuth } from "@/lib/firebaseClient";
 
 export interface AuthUserProfile {
   id: string;
@@ -95,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       await fetch("/api/auth/logout", { method: "POST" });
     }
+    await signOut(firebaseAuth).catch(() => {});
     setUser(null);
     router.push("/login");
     router.refresh();

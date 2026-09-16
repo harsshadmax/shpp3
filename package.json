@@ -13,6 +13,8 @@
     "@supabase/supabase-js": "^2.48.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "firebase": "^12.19.0",
+    "jose": "^6.2.12",
     "lucide-react": "^1.16.0",
     "next": "^15.1.9",
     "qrcode": "^1.5.4",

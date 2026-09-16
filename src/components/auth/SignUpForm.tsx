@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { FormField, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { firebaseAuth, firestore } from "@/lib/firebaseClient";
 import type { UserRole } from "@/lib/userStore";
-import { getRoleHome } from "@/lib/userStore";
 
 const ROLE_OPTIONS: { value: UserRole; label: string; defaultFacility: string }[] = [
   { value: "MEDICAL_OFFICER", label: "Medical Officer (MO)", defaultFacility: "Govt Hospital Chennai" },
@@ -14,15 +15,30 @@ const ROLE_OPTIONS: { value: UserRole; label: string; defaultFacility: string }[
   { value: "ADMIN", label: "System Administrator", defaultFacility: "Forensic HQ Chennai" },
 ];
 
+function friendlySignupError(code: string): string {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists";
+    case "auth/weak-password":
+      return "Password is too weak";
+    case "auth/invalid-email":
+      return "Please enter a valid email address";
+    default:
+      return "Sign-up failed. Please check your details.";
+  }
+}
+
 export function SignUpForm({
   onSwitchToSignIn,
+  onCredentialsCreated,
 }: {
   onSwitchToSignIn?: () => void;
+  onCredentialsCreated: (idToken: string, uid: string) => void;
 }) {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<UserRole>("MEDICAL_OFFICER");
   const [facilityId, setFacilityId] = useState("Govt Hospital Chennai");
   const [password, setPassword] = useState("");
@@ -31,7 +47,6 @@ export function SignUpForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   function handleRoleChange(selected: UserRole) {
     setRole(selected);
@@ -54,6 +69,10 @@ export function SignUpForm({
 
     if (!employeeCode.trim() || employeeCode.trim().length < 3) {
       errs.employeeCode = "Badge/Employee code must be at least 3 characters";
+    }
+
+    if (!/^\+91[\s-]?\d{5}[\s-]?\d{5}$/.test(phone.trim())) {
+      errs.phone = "Enter a valid Indian mobile number, e.g. +91 98765 43210";
     }
 
     if (!facilityId.trim() || facilityId.trim().length < 2) {
@@ -81,59 +100,28 @@ export function SignUpForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setGlobalError(null);
-    setSuccessMsg(null);
 
     if (!validateClient()) return;
 
     setPending(true);
 
     try {
-      // 1. Send signup request to /api/v1/auth/signup
-      const res = await fetch("/api/v1/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          employee_code: employeeCode.trim(),
-          role,
-          facility_id: facilityId.trim(),
-          password,
-        }),
+      const cred = await createUserWithEmailAndPassword(firebaseAuth, email.trim().toLowerCase(), password);
+
+      await setDoc(doc(firestore, "users", cred.user.uid), {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        employee_code: employeeCode.trim(),
+        role,
+        facility_id: facilityId.trim(),
+        phone: phone.trim(),
       });
 
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        setGlobalError(json.error || "Sign-up failed. Please check your details.");
-        setPending(false);
-        return;
-      }
-
-      setSuccessMsg("Account registered successfully! Signing in…");
-
-      // 2. Automatically log the user in
-      const loginRes = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: email.trim().toLowerCase(), password }),
-      });
-
-      const loginJson = await loginRes.json();
-      if (loginRes.ok && loginJson.success) {
-        const destination = loginJson.data?.redirectTo || getRoleHome(role);
-        router.push(destination);
-        router.refresh();
-      } else {
-        // Redirect to sign in if auto-login fails
-        if (onSwitchToSignIn) {
-          onSwitchToSignIn();
-        } else {
-          router.push("/login");
-        }
-      }
-    } catch {
-      setGlobalError("Network error. Unable to reach authentication server.");
+      const idToken = await cred.user.getIdToken();
+      onCredentialsCreated(idToken, cred.user.uid);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? "";
+      setGlobalError(friendlySignupError(code));
       setPending(false);
     }
   }
@@ -143,12 +131,6 @@ export function SignUpForm({
       {globalError && (
         <div className="p-3 text-[12px] bg-[var(--breach-bg)] border border-[var(--breach)] text-[var(--breach)] rounded-[6px]">
           {globalError}
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="p-3 text-[12px] bg-[var(--verified-bg)] border border-[var(--verified)] text-[var(--verified)] rounded-[6px]">
-          {successMsg}
         </div>
       )}
 
@@ -184,6 +166,21 @@ export function SignUpForm({
           />
         </FormField>
       </div>
+
+      <FormField
+        label="Official Mobile Number"
+        error={fieldErrors.phone}
+        hint="Used to verify your identity at sign-in"
+      >
+        <Input
+          type="tel"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+91 98765 43210"
+          className="font-mono-id"
+        />
+      </FormField>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FormField label="Assigned Role">

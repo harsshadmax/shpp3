@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ShieldCheck, WifiOff, RotateCcw, LogOut, Menu, X } from "lucide-react";
 import { useConnectivity, useCurrentUser, toggleSimulateOffline, resetDemoData } from "@/lib/store";
+import { signOut } from "firebase/auth";
+import { firebaseAuth } from "@/lib/firebaseClient";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -48,6 +50,7 @@ function NavFooter() {
     } catch {
       await fetch("/api/auth/logout", { method: "POST" });
     }
+    await signOut(firebaseAuth).catch(() => {});
     router.push("/login");
     router.refresh();
   }
