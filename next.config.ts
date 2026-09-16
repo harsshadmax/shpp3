@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["bcryptjs"],
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.output = {
